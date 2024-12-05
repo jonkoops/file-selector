@@ -11,13 +11,13 @@ const FILES_TO_IGNORE = [
  * NOTE: If some of the items are folders,
  * everything will be flattened and placed in the same list but the paths will be kept as a {path} property.
  *
- * @param evt
+ * @param event
  */
-export async function fromEvent(
-  evt: Event,
+export async function fromDragEvent(
+  event: DragEvent,
 ): Promise<(FileWithPath | DataTransferItem)[]> {
-  if (isObject<DragEvent>(evt) && isDataTransfer(evt.dataTransfer)) {
-    return getDataTransferFiles(evt.dataTransfer, evt.type);
+  if (event.dataTransfer) {
+    return getDataTransferFiles(event.dataTransfer, event.type);
   }
 
   return [];
@@ -66,14 +66,6 @@ async function fromFileHandle(
 ): Promise<FileWithPath> {
   const file = await handle.getFile();
   return toFileWithPath(file);
-}
-
-function isDataTransfer(value: any): value is DataTransfer {
-  return isObject(value);
-}
-
-function isObject<T>(v: any): v is T {
-  return typeof v === "object" && v !== null;
 }
 
 async function getDataTransferFiles(dataTransfer: DataTransfer, type: string) {
