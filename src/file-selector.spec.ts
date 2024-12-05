@@ -1,7 +1,7 @@
 import { FileWithPath } from "./file.js";
 import {
   fromChangeEvent,
-  fromEvent,
+  fromDragEvent,
   fromFileHandles,
 } from "./file-selector.js";
 
@@ -38,22 +38,6 @@ describe("fromChangeEvent", () => {
   });
 });
 
-it("returns a Promise", async () => {
-  const evt = new Event("test");
-  expect(fromEvent(evt)).toBeInstanceOf(Promise);
-});
-
-it("should return an empty array if the passed arg is not what we expect", async () => {
-  const files = await fromEvent({} as Event);
-  expect(files).toHaveLength(0);
-});
-
-it("should return an empty array if the evt {target} has no {files} prop", async () => {
-  const evt = inputEvtFromFiles();
-  const files = await fromEvent(evt);
-  expect(files).toHaveLength(0);
-});
-
 it("should return files if the arg is a list of FileSystemFileHandle", async () => {
   const name = "test.json";
   const [mockFile, mockHandle] = createFileSystemFileHandle(
@@ -77,12 +61,6 @@ it("should return files if the arg is a list of FileSystemFileHandle", async () 
   expect(file.path).toBe(`./${name}`);
 });
 
-it("should return an empty array if the passed event is not a DragEvent", async () => {
-  const evt = new Event("test");
-  const files = await fromEvent(evt);
-  expect(files).toHaveLength(0);
-});
-
 it("should return an empty array if the dragged item not a directory or file", async () => {
   const evt = dragEvtFromItems([
     dataTransferItemFromEntry(
@@ -95,7 +73,7 @@ it("should return an empty array if the dragged item not a directory or file", a
     ),
   ]);
 
-  const files = await fromEvent(evt);
+  const files = await fromDragEvent(evt);
   expect(files).toHaveLength(0);
 });
 
@@ -111,7 +89,7 @@ it("should return files from DataTransfer {items} if the passed event is a DragE
   const item = dataTransferItemFromFile(mockFile);
   const evt = dragEvtFromFilesAndItems([], [item]);
 
-  const files = await fromEvent(evt);
+  const files = await fromDragEvent(evt);
   expect(files).toHaveLength(1);
   expect(files.every((file) => file instanceof File)).toBe(true);
 
@@ -140,7 +118,7 @@ it("should use the {fullPath} for {path} if {webkitGetAsEntry} is supported and 
   const item = dataTransferItemFromEntry(file, mockFile);
   const evt = dragEvtFromFilesAndItems([], [item]);
 
-  const files = await fromEvent(evt);
+  const files = await fromDragEvent(evt);
   expect(files).toHaveLength(1);
   expect(files.every((file) => file instanceof File)).toBe(true);
 
@@ -166,7 +144,7 @@ it('skips DataTransfer {items} that are of kind "string"', async () => {
   const str = dataTransferItemFromStr("test");
   const evt = dragEvtFromItems([str, f]);
 
-  const files = await fromEvent(evt);
+  const files = await fromDragEvent(evt);
   expect(files).toHaveLength(1);
 
   const [file] = files as FileWithPath[];
@@ -210,7 +188,7 @@ it("can read a tree of directories recursively and return a flat list of FileWit
     dataTransferItemFromEntry(fileSystemFileEntryFromFile(f8), f8),
   ]);
 
-  const items = await fromEvent(evt);
+  const items = await fromDragEvent(evt);
   const files = sortFiles(items as FileWithPath[]);
   expect(files).toHaveLength(6);
   expect(files.every((file) => file instanceof File)).toBe(true);
@@ -230,7 +208,7 @@ it('returns the DataTransfer {items} if the DragEvent {type} is not "drop"', asy
   const item = dataTransferItemFromFile(mockFile);
   const evt = dragEvtFromItems(item, "dragenter");
 
-  const items = await fromEvent(evt);
+  const items = await fromDragEvent(evt);
   expect(items).toHaveLength(1);
 
   const [itm] = items as DataTransferItem[];
@@ -252,7 +230,7 @@ it('filters DataTransfer {items} if the DragEvent {type} is not "drop" and DataT
   const str = dataTransferItemFromStr("test");
   const evt = dragEvtFromItems([file, str], "dragenter");
 
-  const items = await fromEvent(evt);
+  const items = await fromDragEvent(evt);
   expect(items).toHaveLength(1);
 
   const [item] = items as DataTransferItem[];
@@ -271,7 +249,7 @@ it("filters thumbnail cache files", async () => {
   );
   const item = dataTransferItemFromFile(mockFile);
   const evt = dragEvtFromFilesAndItems([], [item]);
-  const items = await fromEvent(evt);
+  const items = await fromDragEvent(evt);
   expect(items).toHaveLength(0);
 });
 
@@ -291,7 +269,7 @@ it("should throw if reading dir entries fails", (done) => {
     ),
   ]);
 
-  fromEvent(evt)
+  fromDragEvent(evt)
     .then(() => done.fail("Getting the files should have failed"))
     .catch(() => done());
 });
@@ -315,7 +293,7 @@ it("should throw if reading file entry fails", (done) => {
     ),
   ]);
 
-  fromEvent(evt)
+  fromDragEvent(evt)
     .then(() => done.fail("Getting the files should have failed"))
     .catch(() => done());
 });
@@ -324,7 +302,7 @@ it("should throw if DataTransferItem is not a File", async () => {
   const item = dataTransferItem(null, "file");
   const event = dragEvtFromFilesAndItems([], [item]);
 
-  await expect(fromEvent(event)).rejects.toThrow(
+  await expect(fromDragEvent(event)).rejects.toThrow(
     "Transferred item is not a file.",
   );
 });
@@ -339,7 +317,7 @@ it("should use getAsFileSystemHandle when available", async () => {
     },
   );
   const evt = dragEvtFromItems([dataTransferItemWithFsHandle(f, h)]);
-  const files = await fromEvent(evt);
+  const files = await fromDragEvent(evt);
   expect(files).toHaveLength(1);
   expect(files.every((file) => file instanceof File)).toBe(true);
 
@@ -372,7 +350,7 @@ it("should not use getAsFileSystemHandle when not in a secure context", async ()
 
   globalThis.isSecureContext = false;
 
-  const files = await fromEvent(evt);
+  const files = await fromDragEvent(evt);
   expect(files).toHaveLength(1);
   expect(files.every((file) => file instanceof File)).toBe(true);
 
@@ -390,7 +368,7 @@ it("should not use getAsFileSystemHandle when not in a secure context", async ()
 it("should reject when getAsFileSystemHandle resolves to null", async () => {
   const event = dragEvtFromItems([dataTransferItemWithFsHandle(null, null)]);
 
-  await expect(fromEvent(event)).rejects.toThrow(
+  await expect(fromDragEvent(event)).rejects.toThrow(
     "Transferred item is not a file.",
   );
 });
@@ -408,7 +386,7 @@ it("should fallback to getAsFile when getAsFileSystemHandle resolves to undefine
     dataTransferItemWithFsHandle(mockFile, undefined),
   ]);
 
-  const files = await fromEvent(evt);
+  const files = await fromDragEvent(evt);
   expect(files).toHaveLength(1);
   expect(files.every((file) => file instanceof File)).toBe(true);
 
@@ -426,7 +404,7 @@ it("should throw if getAsFileSystemHandle() does not return a file", async () =>
   const handle = { kind: "unknown" } as unknown as FileSystemFileHandle;
   const event = dragEvtFromItems([dataTransferItemWithFsHandle(file, handle)]);
 
-  await expect(fromEvent(event)).rejects.toThrow(
+  await expect(fromDragEvent(event)).rejects.toThrow(
     "Transferred item is not a file.",
   );
 });
